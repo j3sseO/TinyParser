@@ -2,6 +2,7 @@
 {-# HLINT ignore "Use <$>" #-}
 {-# HLINT ignore "Redundant bracket" #-}
 import Parsing
+import Control.Monad.RWS (MonadWriter(pass))
 
 -- Data types
 
@@ -65,10 +66,10 @@ factor = do symbol "0"
          do symbol "1"
             return One
          +++
-         do symbol "tt"
+         do symbol "true"
             return TT
          +++
-         do symbol "ff"
+         do symbol "false"
             return FF
          +++
          do symbol "read"
@@ -127,3 +128,37 @@ cmdrInd = do string "if "
              c <- cmdrSeq
              do symbol ")"
                 return c 
+
+-- Parses a string into an expression (Exp).
+eparse :: String -> Exp
+eparse xs = case (parse expr xs) of
+             -- If the parsing is successful and there is no remaining input, return the parsed expression.
+             [(n,[])] -> n
+             -- If there is unused input, raise an error indicating the unused input.
+             [(_,out)] -> error ("ERROR: UNUSED INPUT: `" ++ out ++ "`")
+             -- If the parsing fails, raise an error indicating invalid input.
+             [] -> error "ERROR: INVALID INPUT"
+
+-- Parses a string into a command (Cmd).
+cparse :: String -> Cmd
+cparse xs = case (parse cmdrSeq xs) of
+             -- If the parsing is successful and there is no remaining input, return the parsed command.
+             [(n,[])] -> n
+             -- If there is unused input, raise an error indicating the unused input.
+             [(_,out)] -> error ("ERROR: UNUSED INPUT: `" ++ out ++ "`")
+             -- If the parsing fails, raise an error indicating invalid input.
+             [] -> error "ERROR: INVALID INPUT"
+
+-- Test programs
+-- Run `cparse [programName]` in GHCi to parse the program.
+
+-- Correctly failing programs
+failProgram1 = "x:=0;while (x=0) do (false);output x"
+failProgram2 = "x:=1;y:=(output x);if (x=1) do y"
+failProgram3 = "x:=0;if (x=1 then (output x) else (output 0)"
+
+-- Correctly passing programs
+gordonProgram = "sum:=0;x:=read;while not (x=true) do sum:=sum+x;x:=read;output sum"
+passProgram1 = "x:=0;y:=1;count:=read;if (count=true) then (output x) else (output y)"
+passProgram2 = "y:=1;num:=read;count:=0;while (num=0) do (count:=count+y;num:=read);output count"
+passProgram3 = "x:=0;if (x=0) then (if (read=1) then (output 1) else (output 0)) else output x"
